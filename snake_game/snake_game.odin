@@ -1,17 +1,25 @@
 package snake_game
 
 import "core:fmt"
+import "core:math/rand"
 import rl "vendor:raylib"
 
-W_WIDTH :: 800
-W_HEIGHT :: 600
+SCREEN_WIDTH :: 800
+SCREEN_HEIGHT :: 600
 WIN_TITLE :: "snake"
 TARGET_FPS :: 60
 
 MAP_WIDTH :: 20
 MAP_HEIGHT :: 20
 
-TICK_INTERVAL: f32 = 1.0
+TICK_INTERVAL: f32 = 0.3
+
+CELL_SIZE :: 24 // px
+GAP :: 2 // px
+MAP_SCREEN_WIDTH :: MAP_WIDTH * CELL_SIZE
+MAP_SCREEN_HEIGHT :: MAP_HEIGHT * CELL_SIZE
+ORIGIN_X :: (SCREEN_WIDTH - MAP_SCREEN_WIDTH) / 2
+ORIGIN_Y :: (SCREEN_HEIGHT - MAP_SCREEN_HEIGHT) / 2
 
 Vec2 :: [2]int
 GameMap :: [MAP_HEIGHT][MAP_WIDTH]Tile
@@ -20,7 +28,6 @@ GameMap :: [MAP_HEIGHT][MAP_WIDTH]Tile
 Tile :: enum u8 {
 	TileEmpty,
 	TileFood,
-	TileSnakeBody,
 }
 
 Game :: struct {
@@ -42,15 +49,26 @@ DIR_OFFSETS := [Direction]Vec2 {
 	.RIGHT = {1, 0},
 }
 
+food_gen :: proc() -> Vec2 {
+	rand_x := int(rand.int31_max(MAP_WIDTH))
+	rand_y := int(rand.int31_max(MAP_HEIGHT))
+	return Vec2{rand_x, rand_y}
+}
+food_clean :: proc(g: ^Game, v: Vec2) {
+	g.game_map[v.y][v.x] = .TileEmpty
+}
 
 run :: proc() {
-	rl.InitWindow(W_WIDTH, W_HEIGHT, WIN_TITLE)
+
+	rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WIN_TITLE)
 	rl.SetTargetFPS(TARGET_FPS)
 
 	game_map := game_map_create()
-	s := snake_new(10, Vec2{0, 0})
+	s := snake_new(10, Vec2{MAP_WIDTH / 2, MAP_HEIGHT / 2})
 	defer free(s)
 	g := &Game{snake = s, game_map = &game_map}
+	a := food_gen()
+	g.game_map[a.x][a.y] = .TileFood
 
 	timer: f32 = 0.0
 	curr_direction: Direction = .RIGHT
@@ -65,10 +83,11 @@ run :: proc() {
 
 		timer += dt
 
+
 		if timer >= TICK_INTERVAL {
 			fmt.print("game tick!\n")
 
-			game_tick(g.snake, curr_direction)
+			game_tick(g.snake, g, curr_direction)
 
 			timer -= TICK_INTERVAL
 		}
@@ -76,7 +95,7 @@ run :: proc() {
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.BLACK)
 		game_map_draw(g.game_map)
-		snake_draw(g.snake, 10)
+		snake_draw(g.snake)
 
 		rl.EndDrawing()
 	}
@@ -90,19 +109,30 @@ game_map_create :: proc() -> GameMap {
 			tile = .TileEmpty
 		}
 	}
+
 	return g
 }
 game_map_draw :: proc(game_map: ^GameMap) {
 	for row, y in game_map {
 		for tile, x in row {
-			da_x := i32(x) * 10
-			da_y := i32(y) * 10
-			rl.DrawRectangle(da_x, da_y, 4, 4, rl.BLUE)
+			da_x := i32(ORIGIN_X + (x * CELL_SIZE))
+			da_y := i32(ORIGIN_Y + (y * CELL_SIZE))
+			rl.DrawRectangleLines(da_x, da_y, CELL_SIZE, CELL_SIZE, rl.DARKGRAY)
+
+			tile_x := da_x + GAP
+			tile_y := da_y + GAP
+			tile_size := i32(CELL_SIZE - (GAP * 2))
+			switch tile {
+			case .TileEmpty:
+				rl.DrawRectangle(tile_x, tile_y, tile_size, tile_size, rl.BLUE)
+			case .TileFood:
+				rl.DrawRectangle(tile_x, tile_y, tile_size, tile_size, rl.GREEN)
+			}
 		}
 	}
 }
 
-game_tick :: proc(s: ^Snake, curr_direction: Direction) {
+game_tick :: proc(s: ^Snake, g: ^Game, curr_direction: Direction) {
 	curr_head := snake_get_current_head_pos(s)
 	dir := DIR_OFFSETS[curr_direction]
 	new_head := Vec2{curr_head.x + dir.x, curr_head.y + dir.y}
@@ -110,9 +140,14 @@ game_tick :: proc(s: ^Snake, curr_direction: Direction) {
 		fmt.printf("snake hit the wal!\n")
 		return
 	}
-	is_food_tile := false
+
+	is_food_tile := g.game_map[new_head.y][new_head.x] == .TileFood
+
 	if is_food_tile {
 		snake_grow(s, new_head)
+		food_clean(g, Vec2{new_head.x, new_head.y})
+		a := food_gen()
+		g.game_map[a.y][a.x] = .TileFood
 	} else {
 		snake_move(s, new_head)
 	}
@@ -155,11 +190,19 @@ snake_grow :: proc(s: ^Snake, new_head_pos: Vec2) {
 	s.size += 1
 }
 
-snake_draw :: proc(s: ^Snake, cell_size: int) {
+snake_draw :: proc(s: ^Snake) {
 	curr_index := s.tail
 	for i := 0; i < s.size; i += 1 {
 		pos := s.arr[curr_index]
-		rl.DrawRectangle(i32(pos.x * cell_size), i32(pos.y * cell_size), 10, 10, rl.RED)
+		screen_x := ORIGIN_X + (pos.x * CELL_SIZE)
+		screen_y := ORIGIN_Y + (pos.y * CELL_SIZE)
+		rl.DrawRectangle(
+			i32(screen_x + GAP),
+			i32(screen_y + GAP),
+			CELL_SIZE - (GAP * 2),
+			CELL_SIZE - (GAP * 2),
+			rl.RED,
+		)
 		curr_index = (curr_index + 1) % s.cap
 	}
 }

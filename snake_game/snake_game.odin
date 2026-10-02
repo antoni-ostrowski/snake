@@ -1,6 +1,5 @@
 package snake_game
 
-import "../ring_buf_snake"
 import "core:fmt"
 import rl "vendor:raylib"
 

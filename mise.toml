@@ -1,0 +1,6 @@
+[tasks.build]
+run = "odin build . -debug -out:snake"
+
+[tasks.dev]
+depends = "build"
+run = "./snake"

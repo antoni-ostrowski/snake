@@ -8,6 +8,6 @@ simple snake game in Odin.
 # run 
 Requires odin compiler [odin-lang](https://odin-lang.org)
 ```bash
-make
-# or just odin run .
+ odin run .
+ # or checkout mise.toml
 ```

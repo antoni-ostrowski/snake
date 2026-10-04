@@ -1,6 +1,7 @@
 package snake_game
 
 import "core:fmt"
+import "core:math"
 import "core:math/rand"
 import rl "vendor:raylib"
 
@@ -176,8 +177,8 @@ snake_new :: proc(max_size: int, start_pos: Vec2) -> ^Snake {
 
 snake_move :: proc(s: ^Snake, new_head_pos: Vec2) {
 	s.arr[s.head] = new_head_pos
-	s.head = (s.head + 1) % s.cap
-	s.tail = (s.tail + 1) % s.cap
+	s.head = snake_next_index(s, s.head)
+	s.tail = snake_next_index(s, s.tail)
 }
 
 snake_grow :: proc(s: ^Snake, new_head_pos: Vec2) {
@@ -186,13 +187,13 @@ snake_grow :: proc(s: ^Snake, new_head_pos: Vec2) {
 	}
 
 	s.arr[s.head] = new_head_pos
-	s.head = (s.head + 1) % s.cap
+	s.head = snake_next_index(s, s.head)
 	s.size += 1
 }
 
 snake_draw :: proc(s: ^Snake) {
 	curr_index := s.tail
-	for i := 0; i < s.size; i += 1 {
+	for _ in 0 ..< s.size {
 		pos := s.arr[curr_index]
 		screen_x := ORIGIN_X + (pos.x * CELL_SIZE)
 		screen_y := ORIGIN_Y + (pos.y * CELL_SIZE)
@@ -203,11 +204,15 @@ snake_draw :: proc(s: ^Snake) {
 			CELL_SIZE - (GAP * 2),
 			rl.RED,
 		)
-		curr_index = (curr_index + 1) % s.cap
+		curr_index = snake_next_index(s, curr_index)
 	}
 }
 
 snake_get_current_head_pos :: proc(s: ^Snake) -> Vec2 {
 	last_head_idx := (s.head - 1 + s.cap) % s.cap
 	return s.arr[last_head_idx]
+}
+
+snake_next_index :: proc(s: ^Snake, curr_index: int) -> int {
+	return (curr_index + 1) % s.cap
 }
